@@ -1,0 +1,300 @@
+﻿@{ ViewData["Title"] = "Home Page"; }
+
+@section scripts {
+    <script type="text/javascript">
+    function ShowVideo(email, gname) {
+            alert('You clicked ' + email + "!");
+        }
+        function ShowVideo(element) {
+            alert('You clicked ' + element.src + "!");
+        }
+
+        $('#my_modal').on('show.bs.modal', function (e) {
+            var generatedMediaName = $(e.relatedTarget).data('media-id');
+            var mediaUrl = "https://lab3videobucket.s3.amazonaws.com/" + generatedMediaName;
+            $(e.currentTarget).find('video[name="media-player"]').attr("src", mediaUrl);
+            $(e.currentTarget).find('#btnComment').attr("data-media-id", generatedMediaName);
+            $(e.currentTarget).find('#btnDownload').attr("href", mediaUrl);
+            var modelTile = ($(e.relatedTarget).data('file-name') + '<br />') + ('<small class="text-muted">Uploaded by '
+                + $(e.relatedTarget).data('owner-email-id') + ' on ' + $(e.relatedTarget).data('uploaded-time')+'</small> ');
+            $(e.currentTarget).find('#modal-title').html(modelTile);
+            getRating(generatedMediaName);
+        });
+
+        function getRating(generatedMediaName) {
+            $.ajax({
+                    type: 'POST',
+                    url: '@Url.Action("GetMediaRating", "Home")',
+                dataType: 'json',
+                cache: true,
+                data: { "GeneratedFileNameAsMediaId": generatedMediaName },
+                success: function (data, status) {
+                    if (data != null) {
+                        $('#drop').val(data.RatingValue);
+                    }
+                    },
+                    error: errorFunc
+                });
+        }
+
+        $("#btnComment").on("click", function (e) {
+            if ($('#divExistingComments').children().length == 0) {
+                var mediaId = $(e.target).attr("data-media-id");
+                $('div[name="divCommentSection"]').removeAttr('class');
+                $('div[name="divCommentSection"]').attr('class', 'form-group');
+                $.ajax({
+                    type: 'POST',
+                    url: '@Url.Action("LoadComments", "Home")',
+                    dataType: 'json',
+                    cache: true,
+                    data: { "mediaId": mediaId },
+                    success: successFunc,
+                    error: errorFunc
+                });
+            }
+        });
+
+        $("#btnPost").on("click", function (e) {
+            var CommentText = $.trim($("#comment").val());
+            var GeneratedFileNameAsMediaId = $('#btnComment').attr("data-media-id")
+            var data = JSON.stringify({
+                "GeneratedFileNameAsMediaId": GeneratedFileNameAsMediaId,
+                "CommentText": CommentText
+            });
+            if (comment != "") {
+                $.ajax({
+                    type: 'POST',
+                    url:  '@Url.Action("PostComment", "Home")',
+                    dataType: 'json',
+                    data: {
+                        "json": data
+                    },
+                    success: addExistingComment,
+                    error: errorFunc
+            });
+            }
+        });
+
+        $("#btnLike").on("click", function (e) {
+            var GeneratedFileNameAsMediaId = $('#btnComment').attr("data-media-id");
+            var data = JSON.stringify({
+                "GeneratedFileNameAsMediaId": GeneratedFileNameAsMediaId
+            });
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("LikePost", "Home")',
+                dataType: 'json',
+                cache: true,
+                data: { "mediaId": mediaId },
+                success: successFunc,
+                error: errorFunc
+                });
+        });
+
+
+        function successFunc(data, status) {
+            data.forEach(addExistingComment)
+        }
+
+        function addExistingComment(item, index) {
+            var x = ('<li class="media"><div class="media-body"><span class="text-muted pull-right">'
+                + '<small class="text-muted" >' + item.CommentCreationTime + '</small></span>'
+                 + '<strong class="text-success">' + item.CommentedUserEmailId + '</strong>'
+                + '<p>' + item.CommentText + '</p></div><hr/></li>');
+            $('ul[name="divExistingComments"]').append(x);
+            $("#comment").val("");
+        }
+
+        function dropChange(x) {
+            var RatingValue = x.value;
+            if (RatingValue != null || RatingValue != "")
+            if (RatingValue != 0 && RatingValue <= 5) {
+                var GeneratedFileNameAsMediaId = $('#btnComment').attr("data-media-id");
+                var data = JSON.stringify({
+                    "GeneratedFileNameAsMediaId": GeneratedFileNameAsMediaId,
+                    "RatingValue": RatingValue
+                });
+                if (comment != "") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@Url.Action("RateMedia", "Home")',
+                        dataType: 'json',
+                        data: {
+                            "json": data
+                        },
+                        success: function () {
+                            alert("success");
+                        },
+                        error: errorFunc
+                    });
+                }
+            }
+        }
+
+        function errorFunc() {
+            alert('error');
+        }
+
+        $('#my_modal').on('hide.bs.modal', function (e) {
+            $('#divExistingComments').empty();
+            $('div[name="divCommentSection"]').removeAttr('class');
+            $('div[name="divCommentSection"]').attr('class', 'form-group hidden');
+        });
+
+        function deleteCommentsAsModelCloses() {
+            $('#divExistingComments').empty();
+            $('div[name="divCommentSection"]').removeAttr('class');
+            $('div[name="divCommentSection"]').attr('class', 'form-group hidden');
+        }
+    </script>
+
+}
+
+<div style="padding-top:60px"></div>
+<div class="row">
+    <div class="col-md-12">
+        <a id="modal-42243" href="#modal-container-42243" role="button" class="btn btn-warning btn-lg" data-toggle="modal">Upload a video</a>
+        <div class="modal fade" id="modal-container-42243" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="myModalLabel">
+                            Upload a video
+                        </h5>
+                        <button type="button" class="close" data-dismiss="modal">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        @if (User.Identity.IsAuthenticated)
+                        {
+                            <form method="post" enctype="multipart/form-data" action="/Home/Upload">
+                                <div style="padding-bottom:20px">
+                                    <p>Upload only one video file below:</p>
+                                    <input type="file" class="btn btn-primary" name="files" />
+
+                                </div>
+                                <div class="modal-footer">
+                                    <input type="submit" class="btn btn-success" value="Upload" />
+                                    <button class="btn btn-danger" data-dismiss="modal">Close</button>
+                                </div>
+                            </form>
+                        } @if (!User.Identity.IsAuthenticated)
+                        {
+                            <div style="padding-bottom:20px">
+                                <h3>Login to Upload Videos</h3>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <div class="row">
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="my_modal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content  ">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" onclick="deleteCommentsAsModelCloses()">
+                        <span aria-hidden="true">&times;</span><span class="sr-only">Close</span>
+                    </button>
+                    <h4 class="modal-title" id="modal-title"></h4>
+                </div>
+                <div class="modal-body">
+                    <div class="flex-video widescreen">
+                        <video controls name="media-player" id="media-player" src="" controlsList="nodownload" style="width: 100%; height: auto; margin:0 auto; ">
+                            Your browser doesn't support HTML5 video tag.
+                        </video>
+                    </div>
+                    @if (User.Identity.IsAuthenticated)
+                    {
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-md-4">                                            <button class="btn">Your Rating</button>
+                                                <select id="drop" class="form-control" onchange="dropChange(this)">
+                                                    <option value="">Rate here</option>
+                                                    <option value="1">1</option>
+                                                    <option value="2">2</option>
+                                                    <option value="3">3</option>
+                                                    <option value="4">4</option>
+                                                    <option value="5">5</option>
+                                                </select>
+                                </div>
+                                    <button class="btn btn-warning   glyphicon glyphicon-triangle-bottom" name="btnComment" id="btnComment" data-media-id="" asp-action="LoadComments">
+                                       Add & View Comments
+                                    </button>
+                                    <a download class="btn btn-success" id="btnDownload" href="">Download</a>
+                            </div>
+                        </div>
+                    } @if (!User.Identity.IsAuthenticated)
+                    {
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h3>Login to Rate, Comment, View comments and Download this video</h3>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    <hr name="hrLine" class="" />
+                    <div class="form-group hidden" name="divCommentSection">
+                        <div class="panel panel-info">
+                            <div class="panel-heading">
+                                Comment panel
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <textarea class="form-control" rows="5" id="comment" wrap="hard" style="resize:none; overflow:auto"></textarea><br>
+                            <button class="btn btn-info pull-right btn-lg" id="btnPost">Post</button>
+                            <div class="clearfix"></div>
+                            <hr />
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <ul class="media-list" name="divExistingComments" id="divExistingComments"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger btn-lg" data-dismiss="modal" onclick="deleteCommentsAsModelCloses()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1 class="font-weight-light text-center text-lg-left mt-4 mb-0">Available Video Galary</h1>
+        <hr class="mt-2 mb-5">
+        <div class="row text-center text-lg-left" id="divThumbParent">
+            @foreach (VideoLibrary file in ViewData["videos"] as IList
+        <VideoLibrary>)
+            {
+            <div class="col-lg-3 col-md-4 col-6">
+
+                <span class="row">
+                    <video class="img-fluid img-thumbnail" width="300" height="400" id="vidId" preload="metadata" 
+                           alt="@file.GeneratedFileNameAsMediaId" 
+                           data-file-name="@file.FileName" 
+                           data-owner-email-id="@file.OwnerEmailId" 
+                           data-uploaded-time="@file.UploadedTime" 
+                           data-generated-media-id="@file.GeneratedFileNameAsMediaId"
+                           media-url="https://lab3videobucket.s3.amazonaws.com/@file.GeneratedFileNameAsMediaId"
+                           data-toggle="modal" data-target="#my_modal" 
+                           controlsList="nodownload" style="pointer-events: unset;" data-media-id="@file.GeneratedFileNameAsMediaId">
+                        <source src="https://lab3videobucket.s3.amazonaws.com/@file.GeneratedFileNameAsMediaId" />
+                    </video>
+                </span>
+                <span class="row">
+                    <strong class="text-success">File Name: @file.FileName</strong><br />
+                    <strong class="text-success">Owner: @file.OwnerEmailId</strong><br />
+                    <strong class="text-success">@file.UploadedTime</strong><br />
+                </span>
+            </div>
+            }
+        </div>
+    </div>
